@@ -5,7 +5,7 @@ date: "2025-11-17"
 output: html_document
 ---
 ```{r}
-# Load Librariess
+# Load Libraries
 library(readr)
 ```
 
@@ -54,3 +54,62 @@ names(forecast)
 
 
 
+=======
+---
+title: "Untitled"
+author: "Brendan, Ian, Steven"
+date: "2025-11-17"
+output: html_document
+---
+```{r}
+# Load Libraries
+library(readr)
+```
+
+```{r}
+# Read in data
+cities <- read.csv("cities.csv")
+outlook <- read.csv("outlook_meanings.csv")
+forecast <- read.csv("weather_forecasts.csv")
+```
+
+```{r}
+sum(is.na(cities))      # How many missing values in cities file?
+sum(is.na(outlook))     # How many missing values in outlook file?
+sum(is.na(forecast))    # How many missing values in forecast file?
+```
+
+```{r}
+# 2. Check for duplicate rows
+sum(duplicated(cities))     # How many repeated rows in cities?
+sum(duplicated(outlook))    # How many repeated rows in outlook?
+sum(duplicated(forecast))   # How many repeated rows in forecast?
+```
+
+
+```{r}
+head(cities)       # Shows top rows of cities data
+head(outlook)      # Shows top rows of outlook data
+head(forecast)     # Shows top rows of forecast data
+```
+
+```{r}
+# For cities dataset
+str(cities)         # Shows data types and example values
+names(cities)       # Lists column names
+
+# For outlook dataset
+str(outlook)
+names(outlook)
+
+# For forecast dataset
+str(forecast)
+names(forecast)
+
+```
+
+
+
+
+
+>>>>>>> 25f0612268b3e0972ad26a21a7d403b71dbc773d
