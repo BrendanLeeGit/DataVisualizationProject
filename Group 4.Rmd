@@ -1,6 +1,6 @@
 ---
 title: "Untitled"
-author: "Steven_Baardsen"
+author: "Brendan, Ian, Steven"
 date: "2025-11-17"
 output: html_document
 ---
@@ -50,6 +50,7 @@ str(forecast)
 names(forecast)
 
 ```
+
 
 
 
