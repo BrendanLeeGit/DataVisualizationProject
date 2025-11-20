@@ -2,3 +2,6 @@
 .Rhistory
 .RData
 .Ruserdata
+cities.csv
+outlook_meanings.csv
+weather_forecasts.csv
