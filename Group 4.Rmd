@@ -1,6 +1,6 @@
 ---
 title: "Group 4"
-author: "Branden, Ian, Steven"
+author: "Brendan, Ian, Steven"
 date: "2025-11-17"
 output: html_document
 ---
@@ -30,13 +30,12 @@ sum(is.na(forecast))
 # 2. Check for duplicate rows
 sum(duplicated(cities))     
 sum(duplicated(outlook))    
-sum(duplicated(forecast))
+sum(duplicated(forecast))   
 ```
 
 
 ```{r}
-#Top rows
-head(cities)       
+head(cities)      
 head(outlook)     
 head(forecast)     
 ```
@@ -58,6 +57,10 @@ names(forecast)
 
 
 ```{r}
+# count how many times each outlook occurs
+outlook_counts <- forecast %>%
+  count(forecast_outlook, name = "n")   # creates columns: forecast_outlook, n
+
 # bar chart using the counts
 ggplot(outlook_counts, aes(x = forecast_outlook, y = n)) +
   geom_col(fill = "steelblue") +
