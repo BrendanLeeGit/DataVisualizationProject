@@ -8,7 +8,6 @@ output:
     orientation: columns
     vertical_layout: fill
     theme: cosmo
-    source_code: embed
 ---
 
 Column {.sidebar}
@@ -19,14 +18,28 @@ library(tidyverse)
 library(lubridate)
 library(plotly)
 library(shiny)
+library(tidytuesdayR)
 
-cities   <- read_csv("cities.csv") %>% na.omit()
-outlook  <- read_csv("outlook_meanings.csv") %>% na.omit()
-weather  <- read_csv("weather_forecasts.csv") %>% na.omit()
+# Get data (TidyTuesday)
+tuesdata <- tidytuesdayR::tt_load(2022, week = 51)
+weather_forecasts <- tuesdata$weather_forecasts
+cities            <- tuesdata$cities
+outlook_meanings  <- tuesdata$outlook_meanings
 
-weather <- weather %>%
+# Or, alternatively, read directly from GitHub:
+# weather_forecasts <- readr::read_csv(
+#   "https://raw.githubusercontent.com/rfordatascience/tidytuesday/main/data/2022/2022-12-20/weather_forecasts.csv"
+# )
+# cities <- readr::read_csv(
+#   "https://raw.githubusercontent.com/rfordatascience/tidytuesday/main/data/2022/2022-12-20/cities.csv"
+# )
+# outlook_meanings <- readr::read_csv(
+#   "https://raw.githubusercontent.com/rfordatascience/tidytuesday/main/data/2022/2022-12-20/outlook_meanings.csv"
+# )
+
+weather <- weather_forecasts %>%
   mutate(date = as.Date(date)) %>%
-  left_join(outlook, by = "forecast_outlook")
+  left_join(outlook_meanings, by = "forecast_outlook")
 
 outlook_types <- sort(unique(weather$forecast_outlook))
 
@@ -70,7 +83,6 @@ filtered_weather <- reactive({
 
 ```
 
-
 Column {data-width=800}
 -----------------------
 
@@ -100,8 +112,6 @@ renderPlotly({
 })
 
 ```
-
-
 
 ###Top 10 Cities by Avg Temp
 
@@ -138,5 +148,6 @@ renderPlotly({
 })
 
 ```
+
 
 

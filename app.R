@@ -2,24 +2,32 @@
 #Brendan, Ian, Steven
 #2025-11-17
 
-# Load required packages ---------------------------------------------------
+# Libraries ---------------------------------------------------------------
 library(shiny)
 library(tidyverse)
 library(lubridate)
 library(plotly)
+library(tidytuesdayR)
 
-# Read and prepare data ----------------------------------------------------
-weather_forecasts <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/main/data/2022/2022-12-20/weather_forecasts.csv')
-cities <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/main/data/2022/2022-12-20/cities.csv') %>% na.omit()
-outlook_meanings <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/main/data/2022/2022-12-20/outlook_meanings.csv') %>% na.omit()
+# Get the data ------------------------------------------------------------
 
-weather <- weather %>%
+# Option A: via tidytuesdayR
+tuesdata <- tidytuesdayR::tt_load(2022, week = 51)
+
+weather_forecasts <- tuesdata$weather_forecasts
+cities            <- tuesdata$cities
+outlook_meanings  <- tuesdata$outlook_meanings
+
+# Basic preparation -------------------------------------------------------
+
+weather <- weather_forecasts %>%
   mutate(date = as.Date(date)) %>%
-  left_join(outlook, by = "forecast_outlook")   # adds meaning column
+  left_join(outlook_meanings, by = "forecast_outlook")
 
 outlook_types <- sort(unique(weather$forecast_outlook))
 
-# UI: sidebar on left, graphs on right ------------------------------------
+# UI: sidebar on left, plots on right -------------------------------------
+
 ui <- fluidPage(
   titlePanel("Interactive Weather Dashboard"),
   
@@ -43,25 +51,17 @@ ui <- fluidPage(
     mainPanel(
       width = 9,
       tabsetPanel(
-        tabPanel(
-          "Daily Temp Trend",
-          br(),
-          plotlyOutput("temp_trend", height = "400px")
-        ),
-        tabPanel(
-          "Top Cities (Temp)",
-          br(),
-          plotlyOutput("city_plot", height = "400px")
-        )
+        tabPanel("Daily Temp Trend",  br(), plotlyOutput("temp_trend", height = "400px")),
+        tabPanel("Top Cities (Temp)", br(), plotlyOutput("city_plot", height = "400px"))
       )
     )
   )
 )
 
-# SERVER -------------------------------------------------------------------
+# Server ------------------------------------------------------------------
+
 server <- function(input, output, session) {
   
-  # Text summary of filters
   output$selected_filters <- renderText({
     req(input$date_range)
     paste(
@@ -72,7 +72,6 @@ server <- function(input, output, session) {
     )
   })
   
-  # Common filtered data
   filtered_weather <- reactive({
     req(input$date_range)
     weather %>%
@@ -85,7 +84,7 @@ server <- function(input, output, session) {
       )
   })
   
-  # Plot 1: Daily temperature trend ---------------------------------------
+  # Plot 1: Daily average temperature
   output$temp_trend <- renderPlotly({
     df <- filtered_weather() %>%
       group_by(date) %>%
@@ -108,7 +107,7 @@ server <- function(input, output, session) {
     ggplotly(p)
   })
   
-  # Plot 2: Top cities by average temp ------------------------------------
+  # Plot 2: Top 10 cities by avg temp
   output$city_plot <- renderPlotly({
     df <- filtered_weather() %>%
       group_by(city, state) %>%
@@ -118,8 +117,12 @@ server <- function(input, output, session) {
       ) %>%
       arrange(desc(avg_observed_temp)) %>%
       slice_head(n = 10) %>%
-      mutate(city_label = factor(paste(city, state, sep = ", "),
-                                 levels = paste(city, state, sep = ", ")))
+      mutate(
+        city_label = factor(
+          paste(city, state, sep = ", "),
+          levels = paste(city, state, sep = ", ")
+        )
+      )
     
     plot_ly(
       data = df,
@@ -137,5 +140,4 @@ server <- function(input, output, session) {
   })
 }
 
-# Run app ------------------------------------------------------------------
 shinyApp(ui, server)
