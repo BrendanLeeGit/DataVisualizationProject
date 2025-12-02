@@ -255,6 +255,8 @@ renderPlotly({
       margin = list(b = 150)
     )
 })
+```
+
 
 ###Heatmap for Average forecast error by time observed by state
 ```{r}
