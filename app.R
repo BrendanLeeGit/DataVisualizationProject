@@ -82,6 +82,7 @@ ui <- fluidPage(
   
   sidebarLayout(
     sidebarPanel(
+      actionButton(inputId = "reset", label = "Reset", icon = icon("sync")),
       width = 3,
       h4("Filters"),
       selectInput(
