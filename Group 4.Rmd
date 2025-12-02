@@ -41,7 +41,63 @@ weather <- weather_forecasts %>%
   mutate(date = as.Date(date)) %>%
   left_join(outlook_meanings, by = "forecast_outlook")
 
+#Creating forecast error column by subtracting observed-forecast temperature.
+weather_forecasts$forecast_error <- weather_forecasts$observed_temp - weather_forecasts$forecast_temp
+
+#Cleaning up weather forecast dataset for heatmap
+weather_forecast_clean <- weather_forecasts %>%
+  filter(!is.na(forecast_error),
+         !is.na(forecast_hours_before),
+         !is.na(state))
+
+weather_forecast_clean <- weather_forecast_clean %>%
+  mutate(state = factor(state,
+                        levels = unique(state)))  # preserves dataset order
+
+weather_forecast_clean <- weather_forecast_clean %>%
+  mutate(forecast_hours_before = factor(forecast_hours_before,
+                                        levels = sort(unique(forecast_hours_before))))
+
+weather_forecast_clean <- weather_forecast_clean %>%
+  mutate(state = factor(state, levels = unique(state)))
+
+weather_forecast_clean <- weather_forecast_clean %>%
+  mutate(
+    state = tolower(state.name[match(state, state.abb)])  # convert abbreviations to full lowercase names
+  )
+
+#Creating dataset to show the average forecast error by time observed by state
+weather_forecast_avg <- weather_forecast_clean %>%
+  group_by(state, forecast_hours_before) %>%
+  summarise(
+    avg_forecast_error = mean(forecast_error, na.rm = TRUE)
+  ) %>%
+  ungroup()
+
+
+
+
+
+#Creating dataset showing the minimum and maximum forecast error by state
+weather_forecast_minmax <- weather_forecast_clean %>%
+  group_by(state) %>%
+  summarise(
+    min_error = min(forecast_error, na.rm = TRUE),
+    max_error = max(forecast_error, na.rm = TRUE)
+  ) %>%
+  tidyr::pivot_longer(cols = c(min_error, max_error),
+                      names_to = "error_type",
+                      values_to = "forecast_error")
+
+
+weather_forecast_minmax <- weather_forecast_minmax %>%
+  mutate(state = fct_reorder(state, forecast_error, .fun = max))
+
+
+
 outlook_types <- sort(unique(weather$forecast_outlook))
+
+
 
 h4("Filters")
 
@@ -55,6 +111,59 @@ dateRangeInput(
   start = min(weather$date, na.rm = TRUE),
   end   = max(weather$date,  na.rm = TRUE)
 )
+
+pickerInput(
+        inputId = "State",
+        label = h4("State"),
+        choices = sort(unique(c(weather_forecast_clean$state, weather_forecast_avg$state))),
+        selected = unique(weather_forecast_clean$state),
+        multiple = TRUE,
+        options  = list(
+          `actions-box` = TRUE,
+          size = 10,
+          `selected-text-format` = "count > 10"
+        ))
+
+ 
+
+
+sliderInput("Forecast_Error","Forecast Error",
+                  min = min(weather_forecast_clean$forecast_error, na.rm = TRUE),
+                  max = max(weather_forecast_clean$forecast_error, na.rm = TRUE),
+                  value = c(-30, 107))
+
+actionButton(inputId = "reset", label = "Reset", icon = icon("sync"))
+
+observeEvent(eventExpr = input$reset, handlerExpr = {
+  
+  updatePickerInput(session = session, 
+        inputId = "State", 
+        selected = unique(unique(weather_forecast_clean$state)))
+        
+  updateSliderInput(session,
+    inputId = "Forecast_Error",
+    value = c(-30, 107)
+  )
+  
+  updateSelectInput(session,
+      "selected_outlook",
+      selected = "All"   
+    )
+  updateDateRangeInput(
+      session,
+      "date_range",
+      start = min(weather$date, na.rm = TRUE),
+      end   = max(weather$date, na.rm = TRUE)
+    )
+
+  
+
+        
+        
+  
+  
+})
+
 
 hr()
 textOutput("selected_filters")
@@ -146,6 +255,78 @@ renderPlotly({
       margin = list(b = 150)
     )
 })
+
+###Heatmap for Average forecast error by time observed by state
+```{r}
+filtered_forecast_avg <- reactive({
+  req(input$State)
+  
+  weather_forecast_avg %>%
+    filter(
+      state %in% input$State
+    )
+})
+
+output$Forecast_avg <- renderPlot({
+  ggplot(filtered_forecast_avg(),
+         aes(x = forecast_hours_before, y = state, fill = avg_forecast_error)) +
+    geom_tile(color = "white") +
+    scale_fill_gradient2(
+      low = "blue", mid = "gray90", high = "red",
+      midpoint = 0, name = "Avg Forecast Error"
+    ) +
+    labs(
+      title = "Average Forecast Error by Lead Time and State",
+      x = "Forecast Hours Before Observation",
+      y = "State"
+    ) +
+    theme_minimal() +
+    theme(
+      axis.text.x = element_text(angle = 45, hjust = 1),
+      axis.text.y = element_text(angle = 45, hjust = 1)
+    )
+})
+
+# In UI
+plotOutput("Forecast_avg")
+
+```
+
+
+```{r}
+
+filtered_min_max <- reactive({
+  req(input$State, input$Forecast_Error)
+  
+  weather_forecast_minmax %>%
+    filter(
+      state %in% input$State,
+      forecast_error >= input$Forecast_Error[1],
+      forecast_error <= input$Forecast_Error[2]
+    )
+    })
+
+
+output$min_max <- renderPlot(
+  
+ggplot(filtered_min_max(),
+       aes(x = state, y = forecast_error, color = error_type, shape = error_type)) +
+  geom_point(size = 3) +
+  geom_line(aes(group = state), color = "gray50", linetype = "dashed") +
+  labs(
+    title = "Minimum and Maximum Forecast Error by State",
+    x = "State",
+    y = "Forecast Error",
+    color = "Error Type",
+    shape = "Error Type"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+)
+
+
+plotOutput("min_max")
 
 ```
 
