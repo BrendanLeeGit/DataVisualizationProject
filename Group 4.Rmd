@@ -19,6 +19,7 @@ library(lubridate)
 library(plotly)
 library(shiny)
 library(tidytuesdayR)
+library(shinyWidgets)
 
 # Get data (TidyTuesday)
 tuesdata <- tidytuesdayR::tt_load(2022, week = 51)
