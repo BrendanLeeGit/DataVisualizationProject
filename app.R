@@ -8,6 +8,7 @@ library(tidyverse)
 library(lubridate)
 library(plotly)
 library(tidytuesdayR)
+library(shinyWidgets)
 
 # Get the data ------------------------------------------------------------
 
@@ -92,6 +93,24 @@ ui <- fluidPage(
         start = min(weather$date, na.rm = TRUE),
         end   = max(weather$date,  na.rm = TRUE)
       ),
+      
+      pickerInput(
+        inputId = "State",
+        label = h4("State"),
+        choices = sort(unique(c(weather_forecast_clean$state, weather_forecast_avg$state))),
+        selected = unique(weather_forecast_clean$state),
+        multiple = TRUE,
+        options  = list(
+          `actions-box` = TRUE,
+          size = 10,
+          `selected-text-format` = "count > 10"
+        )),
+      
+      
+      sliderInput("Forecast_Error","Forecast Error",
+                  min = min(weather_forecast_clean$forecast_error, na.rm = TRUE),
+                  max = max(weather_forecast_clean$forecast_error, na.rm = TRUE),
+                  value = c(-30, 107)),
       hr(),
       textOutput("selected_filters")
     ),
@@ -100,7 +119,9 @@ ui <- fluidPage(
       width = 9,
       tabsetPanel(
         tabPanel("Daily Temp Trend",  br(), plotlyOutput("temp_trend", height = "400px")),
-        tabPanel("Top Cities (Temp)", br(), plotlyOutput("city_plot", height = "400px"))
+        tabPanel("Top Cities (Temp)", br(), plotlyOutput("city_plot", height = "400px")),
+        tabPanel("Average Forecast Error", br(), plotOutput("Forecast_avg", height = "700px")),
+        tabPanel("Min/Max Error by State", br(), plotOutput("min_max", height = "400px"))
       )
     )
   )
@@ -186,6 +207,93 @@ server <- function(input, output, session) {
         margin = list(b = 150)
       )
   })
+
+  #Heatmap
+  filtered_forecast_avg <- reactive({
+    req(input$State)
+    
+    weather_forecast_avg %>%
+      filter(
+        state %in% input$State,
+      )
+  })
+  
+  output$Forecast_avg <- renderPlot({
+    ggplot(filtered_forecast_avg(),
+           aes(x = forecast_hours_before, y = state, fill = avg_forecast_error)) +
+      geom_tile(color = "white") +
+      scale_fill_gradient2(
+        low = "blue", mid = "gray90", high = "red",
+        midpoint = 0, name = "Avg Forecast Error"
+      ) +
+      labs(
+        title = "Average Forecast Error by Lead Time and State",
+        x = "Forecast Hours Before Observation",
+        y = "State"
+      ) +
+      theme_minimal() +
+      theme(
+        axis.text.x = element_text(angle = 45, hjust = 1),
+        axis.text.y = element_text(angle = 45, hjust = 1)
+      )
+  })
+
+#Scatterplot
+  filtered_min_max <- reactive({
+    req(input$State, input$Forecast_Error)
+    
+    weather_forecast_minmax %>%
+      filter(
+        state %in% input$State,
+        forecast_error >= input$Forecast_Error[1],
+        forecast_error <= input$Forecast_Error[2]
+      )
+  })
+  
+  
+  output$min_max <- renderPlot(
+    
+    ggplot(filtered_min_max(),
+           aes(x = state, y = forecast_error, color = error_type, shape = error_type)) +
+      geom_point(size = 3) +
+      geom_line(aes(group = state), color = "gray50", linetype = "dashed") +
+      labs(
+        title = "Minimum and Maximum Forecast Error by State",
+        x = "State",
+        y = "Forecast Error",
+        color = "Error Type",
+        shape = "Error Type"
+      ) +
+      theme_minimal() +
+      theme(axis.text.x = element_text(angle = 45, hjust = 1))
+    
+  )
+
+  observeEvent(eventExpr = input$reset, handlerExpr = {
+    
+    updatePickerInput(session = session, 
+                      inputId = "State", 
+                      selected = unique(unique(weather_forecast_clean$state)))
+    
+    updateSliderInput(session,
+                      inputId = "Forecast_Error",
+                      value = c(-30, 107)
+    )
+    
+    updateSelectInput(session,
+                      "selected_outlook",
+                      selected = "All"   
+    )
+    updateDateRangeInput(
+      session,
+      "date_range",
+      start = min(weather$date, na.rm = TRUE),
+      end   = max(weather$date, na.rm = TRUE)
+    )
+  
+  
+  })
+  
 }
 
 shinyApp(ui, server)
