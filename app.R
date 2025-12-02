@@ -26,6 +26,54 @@ weather <- weather_forecasts %>%
 
 outlook_types <- sort(unique(weather$forecast_outlook))
 
+#Creating forecast error column by subtracting observed-forecast temperature.
+weather_forecasts$forecast_error <- weather_forecasts$observed_temp - weather_forecasts$forecast_temp
+
+#Cleaning up weather forecast dataset for heatmap
+weather_forecast_clean <- weather_forecasts %>%
+  filter(!is.na(forecast_error),
+         !is.na(forecast_hours_before),
+         !is.na(state))
+
+weather_forecast_clean <- weather_forecast_clean %>%
+  mutate(state = factor(state,
+                        levels = unique(state)))  # preserves dataset order
+
+weather_forecast_clean <- weather_forecast_clean %>%
+  mutate(forecast_hours_before = factor(forecast_hours_before,
+                                        levels = sort(unique(forecast_hours_before))))
+
+weather_forecast_clean <- weather_forecast_clean %>%
+  mutate(state = factor(state, levels = unique(state)))
+
+weather_forecast_clean <- weather_forecast_clean %>%
+  mutate(
+    state = tolower(state.name[match(state, state.abb)])  # convert abbreviations to full lowercase names
+  )
+
+#Creating dataset to show the average forecast error by time observed by state
+weather_forecast_avg <- weather_forecast_clean %>%
+  group_by(state, forecast_hours_before) %>%
+  summarise(
+    avg_forecast_error = mean(forecast_error, na.rm = TRUE)
+  ) %>%
+  ungroup()
+
+#Creating data set showing the minimum and maximum forecast error by state
+weather_forecast_minmax <- weather_forecast_clean %>%
+  group_by(state) %>%
+  summarise(
+    min_error = min(forecast_error, na.rm = TRUE),
+    max_error = max(forecast_error, na.rm = TRUE)
+  ) %>%
+  tidyr::pivot_longer(cols = c(min_error, max_error),
+                      names_to = "error_type",
+                      values_to = "forecast_error")
+
+
+weather_forecast_minmax <- weather_forecast_minmax %>%
+  mutate(state = fct_reorder(state, forecast_error, .fun = max))
+
 # UI: sidebar on left, plots on right -------------------------------------
 
 ui <- fluidPage(
