@@ -30,6 +30,9 @@ discrepancy_per_city <- weather_accuracy %>% group_by(city) %>%
 # Join tables to get citys' distance from coast
 cities_forecasts_join <- discrepancy_per_city %>% left_join(cities, by = "city")
 
+# Remove NA values
+cities_forecasts_join <- na.omit(cities_forecasts_join)
+
 # Explore relationship between discrepancy and factors like elevation, distance_to_coast, avg annual precipitation, and wind
 ggplot(cities_forecasts_join, aes(x = distance_to_coast, y = avg_discrepancy)) +
   geom_point() +   
@@ -43,7 +46,7 @@ ggplot(cities_forecasts_join, aes(x = distance_to_coast, y = avg_discrepancy)) +
 
 ggplot(cities_forecasts_join, aes(x = wind, y = avg_discrepancy)) +
   geom_point() +   
-  geom_smooth(method = "loess",span = .5, se = FALSE, color = "blue") +
+  geom_smooth(method = "lm", se = FALSE, color = "blue") +
   labs(
     title = "Temperature Discrepancy vs Wind",
     x = "Wind)",
@@ -53,7 +56,7 @@ ggplot(cities_forecasts_join, aes(x = wind, y = avg_discrepancy)) +
 
 ggplot(cities_forecasts_join, aes(x = elevation, y = avg_discrepancy)) +
   geom_point() +   
-  geom_smooth(method = "loess",span = .5, se = FALSE, color = "blue") +
+  geom_smooth(method = "lm", se = FALSE, color = "blue") +
   labs(
     title = "Temperature Discrepancy vs Elevation",
     x = "Elevation",
@@ -61,13 +64,57 @@ ggplot(cities_forecasts_join, aes(x = elevation, y = avg_discrepancy)) +
   ) +
   theme_minimal()
 
+# The outlier here in Juneau in Alaska
 ggplot(cities_forecasts_join, aes(x = avg_annual_precip, y = avg_discrepancy)) +
   geom_point() +   
-  geom_smooth(method = "loess",span = .5, se = FALSE, color = "blue") +
+  geom_smooth(method = "lm", se = FALSE, color = "blue") +
   labs(
     title = "Temperature Discrepancy vs Average Annual Precipitation",
-    x = "Distance to Coast (miles)",
-    y = "Average Annual Precipitation"
+    x = "Average Annual Precipitation",
+    y = "Temp Discrepancy"
   ) +
   theme_minimal()
 
+# Correlation test for each factor
+
+
+correlation_test_results <- tibble(
+  test = c("avg_precip", "elevation", "wind", "distance_to_coast"),
+  correlation = c(
+    cor.test(cities_forecasts_join$avg_annual_precip, cities_forecasts_join$avg_discrepancy)$estimate,
+    cor.test(cities_forecasts_join$elevation, cities_forecasts_join$avg_discrepancy)$estimate,
+    cor.test(cities_forecasts_join$wind, cities_forecasts_join$avg_discrepancy)$estimate,
+    cor.test(cities_forecasts_join$distance_to_coast, cities_forecasts_join$avg_discrepancy)$estimate
+  ),
+  p_value = c(
+    cor.test(cities_forecasts_join$avg_annual_precip, cities_forecasts_join$avg_discrepancy)$p.value,
+    cor.test(cities_forecasts_join$elevation, cities_forecasts_join$avg_discrepancy)$p.value,
+    cor.test(cities_forecasts_join$wind, cities_forecasts_join$avg_discrepancy)$p.value,
+    cor.test(cities_forecasts_join$distance_to_coast, cities_forecasts_join$avg_discrepancy)$p.value
+  )
+) %>% arrange(correlation)
+
+# Rename columns for the graph
+correlation_test_results <- correlation_test_results %>%
+  mutate(test = recode(test,
+                       "avg_precip" = "Avg Annual Precip",
+                       "wind"   = "Wind Speed",
+                       "elevation" = "Elevation",
+                       "distance_to_coast" = "Distance to Coast"))
+
+# Graph correlation test results in bar graph
+# The outlier here is Juneau in Alaska
+ggplot(correlation_test_results, aes(x = reorder(test, correlation),
+                                     y = correlation, fill = correlation > 0)) +
+  geom_col() +
+  labs(
+    title = "Correlation Test Results",
+    x = "Factor",
+    y = "Correlation with Temperature Discrepancy"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "none" # Key is unnecessary
+  )
+  

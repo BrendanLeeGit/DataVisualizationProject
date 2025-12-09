@@ -122,7 +122,8 @@ ui <- fluidPage(
         tabPanel("Daily Temp Trend",  br(), plotlyOutput("temp_trend", height = "400px")),
         tabPanel("Top Cities (Temp)", br(), plotlyOutput("city_plot", height = "400px")),
         tabPanel("Average Forecast Error", br(), plotOutput("Forecast_avg", height = "700px")),
-        tabPanel("Min/Max Error by State", br(), plotOutput("min_max", height = "400px"))
+        tabPanel("Min/Max Error by State", br(), plotOutput("min_max", height = "400px")),
+        tabPanel("Correlation Test Results", br(), plotOutput("ct_results", height = "400px"))
       )
     )
   )
@@ -295,6 +296,68 @@ server <- function(input, output, session) {
   
   })
   
+  # --------------Correlation graph -----------------
+  # Set up data
+  # Create new column showing discrepancy between forecast and observed temps
+  weather_accuracy <- weather_forecasts %>% mutate(temp_dif = abs(observed_temp - forecast_temp))
+  
+  # Summarize the average per city
+  discrepancy_per_city <- weather_accuracy %>% group_by(city) %>%
+    summarize(avg_discrepancy = mean(temp_dif, na.rm = TRUE)) %>% arrange(desc(avg_discrepancy))
+  
+  # Join tables to get citys' distance from coast
+  cities_forecasts_join <- discrepancy_per_city %>% left_join(cities, by = "city")
+  
+  # Remove NA values
+  cities_forecasts_join <- na.omit(cities_forecasts_join)
+  
+  # Perform correlation tests
+  correlation_test_results <- tibble(
+    test = c("avg_precip", "elevation", "wind", "distance_to_coast"),
+    correlation = c(
+      cor.test(cities_forecasts_join$avg_annual_precip, cities_forecasts_join$avg_discrepancy)$estimate,
+      cor.test(cities_forecasts_join$elevation, cities_forecasts_join$avg_discrepancy)$estimate,
+      cor.test(cities_forecasts_join$wind, cities_forecasts_join$avg_discrepancy)$estimate,
+      cor.test(cities_forecasts_join$distance_to_coast, cities_forecasts_join$avg_discrepancy)$estimate
+    ),
+    p_value = c(
+      cor.test(cities_forecasts_join$avg_annual_precip, cities_forecasts_join$avg_discrepancy)$p.value,
+      cor.test(cities_forecasts_join$elevation, cities_forecasts_join$avg_discrepancy)$p.value,
+      cor.test(cities_forecasts_join$wind, cities_forecasts_join$avg_discrepancy)$p.value,
+      cor.test(cities_forecasts_join$distance_to_coast, cities_forecasts_join$avg_discrepancy)$p.value
+    )
+  )
+  
+  # Rename columns for the graph
+  correlation_test_results <- correlation_test_results %>%
+    mutate(test = recode(test,
+                         "avg_precip" = "Avg Annual Precip",
+                         "wind"   = "Wind Speed",
+                         "elevation" = "Elevation",
+                         "distance_to_coast" = "Distance to Coast"))
+  
+  # Create reactive
+  c_t_results <- reactive({
+    correlation_test_results
+  })
+  
+  # Render plot
+  output$ct_results <- renderPlot(
+    ggplot(c_t_results(), 
+           aes(x = reorder(test, correlation),
+               y = correlation, fill = correlation > 0)) +
+      geom_col() +
+      labs(
+        title = "Correlation Test Results",
+        x = "Factor",
+        y = "Correlation with Temperature Discrepancy"
+      ) +
+      theme_minimal() +
+      theme(
+        axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position = "none" # Key is unnecessary
+      )
+    )
 }
 
 shinyApp(ui, server)
