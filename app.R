@@ -311,6 +311,10 @@ server <- function(input, output, session) {
   # Remove NA values
   cities_forecasts_join <- na.omit(cities_forecasts_join)
   
+  # The outlier here is Juneau in Alaska
+  # It has a much higher annual precipitation, so we remove it
+  cities_forecasts_join <- cities_forecasts_join %>% filter(city != "JUNEAU")
+  
   # Perform correlation tests
   correlation_test_results <- tibble(
     test = c("avg_precip", "elevation", "wind", "distance_to_coast"),
